@@ -2,7 +2,7 @@
 if(!isset($_SESSION)) { session_start(); }
 if(!isset($_SESSION['username']))
 {
-    header("Location: ./accessControl1.php");
+    header("Location: ../accessControl1.php");
 }
     try
     {
@@ -24,10 +24,22 @@ if(!isset($_SESSION['username']))
         $data = strip_tags($data);
         return $data;
     }
-    //Decides what happens when the add button is clicked
     if(isset($_POST['submitToPdf']))
     {
-        $incidentID = clean_input($_POST['incidentID']);
+        try
+        {
+            $incidentID = clean_input($_POST['incidentID']);
+            $lastupdatestring = "Claim form Completed & PDF Saved";
+            $lastupdatenumber = 5;
+            $updateInfo = array('id' => $incidentID,'lastupdateBy' => $lastupdatestring, 'lastupdate' => $lastupdatenumber);
+            query_update($pdo,$updateInfo); 
+        }
+        catch(PDOException $e)
+        {   
+            $error = 'Updating Table incident  error';
+            include_once ($ErrorUrl.'error.html.php');
+            exit();  
+        }
         include_once ('queries/selectQueries.php');
         include_once ('../build/aircraftpdf.php');
         include '../return.html.php';
@@ -38,73 +50,53 @@ if(!isset($_SESSION['username']))
         var_dump($_POST);
         echo("</pre>"); */
 
-        try
-		{
+
+            $errors = [];
             $AclNum = clean_input($_POST['AclNum']);
-			$fileExtensions = ['jpeg','jpg','png','pdf','docx']; // Get all the file extensions
-			foreach ($_FILES['file_upload']['tmp_name'] as $key => $tmp_name) // loop through files uploaded
-			{												
-					if (!empty($_FILES['file_upload']['tmp_name'][$key])) // check if each field is not empty
-					{						
-						$rootDir = (dirname(__DIR__));// get root directory
-						$uploadDirectory = "/uploads/"; // current directory for uploading files											
-						$errors = []; // Store all foreseen and unforseen errors here		
-						// gets all file details by name, size, type
-						$fileName = $_FILES['file_upload']['name'][$key];
-						$fileSize = $_FILES['file_upload']['size'][$key];
-						$fileTmpName  = $_FILES['file_upload']['tmp_name'][$key];
-						$fileType = $_FILES['file_upload']['type'][$key];
-						// $fileExtension = strtolower(end(explode('.',$fileName)));
-						$fileExtension = pathinfo($_FILES["file_upload"]["name"][$key]);
-						$fileExtension = $fileExtension['extension'];						
-						// indicate path where file is being upload and change file name based on ACL num						
-						$uploadPath = $rootDir . $uploadDirectory . $AclNum . "-" . basename($fileName); 						
-						// below code -- if changing file name based on acl num is not preferred, this saves the file into the indicated path and retain the filename
-						// $uploadPath = $rootDir . $uploadDirectory . basename($fileName);						
-						// checks file extension
-						if (! in_array($fileExtension,$fileExtensions)) 
-						{
-						$errors[] = "<br>This file extension is not allowed, please upload a JPEG or PNG file<br>";
-						}
-						// checks file size
-						if ($fileSize > 5242880) 
-						{
-							$errors[] = "This file is more than 5MB. Sorry, it has to be less than or equal to 5MB<br>";
-						}						
-						// check if there are errors, if there's none -- it will upload the file.
-						if (empty($errors)) 
-						{
-							
-							$didUpload = move_uploaded_file($fileTmpName, $uploadPath);
-							
-							// check if it has been uploaded and gives a confirmation message
-							if ($didUpload) 
-							{
-								echo "The file " . basename($fileName) . " has been uploaded at " . $uploadPath . "<br>";
-							} 
-							else 
-							{
-								echo "An error occurred somewhere. Try again or contact the admin<br>";
-							}
-						} 
-						else // list all the errors
-						{
-							foreach ($errors as $error) 
-							{
-								echo $error . "These are the errors" . "\n";
-							}
-						}
-					}
-			}
-		}
-		catch (PDOException $e)
-        {
-            // Simple version of error message.
-            $error = $errors;
-            include 'error.html.php';
-            exit();         
-        }
-        //Insert data to the person table
+            $Inputname = clean_input($_POST['filenames']);
+            $path = '/uploads/';
+            $rootDir = (dirname(__DIR__));
+            $extensions = ['jpg', 'jpeg', 'png', 'gif'];
+    
+            $all_files = count($_FILES['files']['tmp_name']);
+            
+            for ($i = 0; $i < $all_files; $i++) {  
+                $file_name = $_FILES['files']['name'][$i];
+                $file_tmp = $_FILES['files']['tmp_name'][$i];
+                $file_type = $_FILES['files']['type'][$i];
+                $file_size = $_FILES['files']['size'][$i];
+                $tmp = explode('.', $file_name);
+                $file_ext = strtolower(end($tmp));
+                //$file_ext = strtolower(end(explode('.', $_FILES['files']['name'][$i])));
+               
+                $newName = $Inputname . "($i)";
+                //$file = $path. "studentinfo($i).".$file_ext;
+                $file = $path. $newName .$file_ext;
+
+                $file = $rootDir . $path . $AclNum . "-" . $newName . "." . $file_ext;
+    
+                //$file = $path . $file_name;
+    
+                if (!in_array($file_ext, $extensions)) {
+                    $errors[] = 'Extension not allowed: ' . $file_name . ' ' . $file_type;
+                }
+    
+                if ($file_size > 2097152) {
+                    $errors[] = 'File size exceeds limit: ' . $file_name . ' ' . $file_type;
+                }
+    
+                if (empty($errors)) {
+                    move_uploaded_file($file_tmp, $file);
+                }
+            }
+    
+            if ($errors)
+            {
+                    echo '<script type="text/javascript">';
+                    echo 'alert("' .$error. ' . These are the errors. Try again ")';
+                    echo '</script>';
+            }
+        
         try
         {
         // Contact Details
@@ -577,9 +569,9 @@ if(!isset($_SESSION['username']))
         {
             if($amountPassengers >1)
             { 
-                for($i=1;$i<$amountPassengers;$i++)
+                for($i=2;$i<=$amountPassengers;$i++)
                 {
-                    $value = $i+1;
+                    $value = $i;
                     try
                     {
                         $pID ="PassengerID{$value}";
@@ -747,47 +739,97 @@ if(!isset($_SESSION['username']))
        try
        {
        $userID = clean_input($_POST['userID']);
+       $incidentID = clean_input($_POST['incidentID']);
+       $newUpdate = date("Y-m-d H:i:s");
        switch($userID)
        {
-           case "admin":
+           case "admin": 
+                   $checkingValue = query_information($pdo,$incidentID);
+                   if($checkingValue < 5)
+                    {
+                        $lastupdatestring = "ADMIN Updated Form ".$newUpdate;
+                        $lastupdatenumber = 2;
+                        $updateInfo = array('id' => $incidentID,'lastupdateBy' => $lastupdatestring, 'lastupdate' => $lastupdatenumber);
+                        query_update($pdo,$updateInfo);
+                    }                       
            include '../return.html.php';
            break;
            case "client":
+                $checkingValue = query_information($pdo,$incidentID);
+                if($checkingValue < 5)
+                    {
+
+                        $lastupdatestring = "Client Completed Form ".$newUpdate;
+                        $lastupdatenumber = 3;
+                        $updateInfo = array('id' => $incidentID,'lastupdateBy' => $lastupdatestring, 'lastupdate' => $lastupdatenumber);
+                        query_update($pdo,$updateInfo);
+                    }   
            include '../views/common/exit.html.php';
            break;
            case "maint":
-           //include '../views/common/exit.html.php';
-           include '../return.html.php';
+                    $checkingValue = query_information($pdo,$incidentID);
+                    if($checkingValue < 5)
+                        {
+                            $lastupdatestring = "Maint Completed Form ".$newUpdate;
+                            $lastupdatenumber = '4';
+                            $updateInfo = array('id' => $incidentID,'lastupdateBy' => $lastupdatestring, 'lastupdate' => $lastupdatenumber);
+                            query_update($pdo,$updateInfo);
+                        }   
+           include '../views/common/exit.html.php';
            break;
        }
        }
        catch (PDOEXCEPTION $e) //output if connecting to the database is incorrect
        {
        $error = 'switch Details error';
-       include './views/error/error.html.php';
+       include '../views/error/error.html.php';
        exit();
        }
     }
     elseif(isset($client) ==true)
     {
         include_once ($selectQueriesUrl . 'selectQueries.php');
-        $page = 'aircraft';
-        include_once (dirname(__DIR__) . '/mainC.php'); 
+        $newUpdate = date("Y-m-d H:i:s");
+        $checkingValue = query_information($pdo,$incidentID);
+                if($checkingValue < 5)
+                    {
+                        $lastupdatestring = "CLIENT Opened Form ".$newUpdate;
+                        $lastupdatenumber = '3';
+                        $updateInfo = array('id' => $incidentID,'lastupdateBy' => $lastupdatestring, 'lastupdate' => $lastupdatenumber);
+                        query_update($pdo,$updateInfo);
+                        $page = 'aircraft';
+                        include_once (dirname(__DIR__) . '/mainC.php'); 
+                    }
+                    else{
+                        $page = 'closed';
+                        include_once (dirname(__DIR__) . '/mainC.php'); 
+                    }
+        
     }
     elseif(isset($MainClient) ==true)
     {
         include_once ($selectQueriesUrl . 'selectQueries.php');
-        $page = 'aircraft';
-        include_once (dirname(__DIR__) . '/mainM.php'); 
+        $newUpdate = date("Y-m-d H:i:s");
+        $checkingValue = query_information($pdo,$incidentID);
+                if($checkingValue < 5)
+                    {
+                        $lastupdatestring = "MAINT Opened Form ".$newUpdate;
+                        $lastupdatenumber = '4';
+                        $updateInfo = array('id' => $incidentID,'lastupdateBy' => $lastupdatestring, 'lastupdate' => $lastupdatenumber);
+                        query_update($pdo,$updateInfo);
+                        $page = 'aircraft';
+                        include_once (dirname(__DIR__) . '/mainM.php');
+                    }
+                    else{
+                        $page = 'closed';
+                        include_once (dirname(__DIR__) . '/mainC.php'); 
+                    }
+       
     }   
     elseif(isset($admin) ==true)
     {
-            //If the admin clicks on the link the following happens -- this allow the files to be updated
-            /* Queries to get more information to display in values on the different sections on the form */   
-                    //Query Incident table to get your Required ID
                     $url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
                     $breakdown = parse_url($url); 
-                    //var_dump($breakdown);
                     $schem = $breakdown['scheme'];
                     $host = $breakdown['host'];
                     $path = $breakdown['path'];
@@ -810,7 +852,6 @@ if(!isset($_SESSION['username']))
         {
                     $url = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http") . "://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
                     $breakdown = parse_url($url); 
-                    //var_dump($breakdown);
                     $schem = $breakdown['scheme'];
                     $host = $breakdown['host'];
                     $path = $breakdown['path'];
